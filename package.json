@@ -1,9 +1,9 @@
 {
-  "name": "notion-compat",
-  "version": "6.16.2",
+  "name": "@wildweb/notion-compat",
+  "version": "6.16.3",
   "type": "module",
   "description": "Compatibility layer between the official Notion API and unofficial private API.",
-  "repository": "NotionX/react-notion-x",
+  "repository": "wildweb-io/react-notion-x",
   "author": "Travis Fischer <travis@transitivebullsh.it>",
   "license": "MIT",
   "main": "./build/index.js",
@@ -33,6 +33,9 @@
   },
   "peerDependencies": {
     "@notionhq/client": "^1.0.4"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "ava": {
     "snapshotDir": ".snapshots",
