@@ -1,6 +1,6 @@
 {
   "name": "@wildweb/notion-compat",
-  "version": "6.16.3",
+  "version": "6.16.4",
   "type": "module",
   "description": "Compatibility layer between the official Notion API and unofficial private API.",
   "repository": "wildweb-io/react-notion-x",
