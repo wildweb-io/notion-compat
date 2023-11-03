@@ -471,7 +471,12 @@ export function convertBlock({
       break
 
     case 'link_preview':
-      // TODO
+      const url = block?.link_preview?.url ?? void 0
+      compatBlock.format.block_page_width = true
+      compatBlock.format.block_height = '30vh'
+      if (url) {
+        compatBlock.properties.source = [[url]]
+      }
       break
 
     case 'unsupported':
