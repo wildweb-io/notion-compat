@@ -1,113 +1,125 @@
-import * as notion from 'notion-types'
+/* eslint-disable max-statements */
+import {convertColor} from './convert-color';
+import type {Decoration, SubDecoration} from 'notion-types';
+import type {RichText, RichTextItem} from './types';
 
-import * as types from './types'
-import { convertColor } from './convert-color'
+// eslint-disable-next-line complexity
+export const convertRichTextItem = (richTextItem: RichTextItem): Decoration => {
+	const subdecorations: SubDecoration[] = [];
 
-export function convertRichText(richText: types.RichText): notion.Decoration[] {
-  return richText.map(convertRichTextItem).filter(Boolean)
-}
+	if (richTextItem.annotations.bold) {
+		subdecorations.push(['b']);
+	}
 
-export function convertRichTextItem(
-  richTextItem: types.RichTextItem
-): notion.Decoration {
-  const subdecorations: notion.SubDecoration[] = []
+	if (richTextItem.annotations.italic) {
+		subdecorations.push(['i']);
+	}
 
-  if (richTextItem.annotations.bold) {
-    subdecorations.push(['b'])
-  }
+	if (richTextItem.annotations.strikethrough) {
+		subdecorations.push(['s']);
+	}
 
-  if (richTextItem.annotations.italic) {
-    subdecorations.push(['i'])
-  }
+	if (richTextItem.annotations.underline) {
+		subdecorations.push(['_']);
+	}
 
-  if (richTextItem.annotations.strikethrough) {
-    subdecorations.push(['s'])
-  }
+	if (richTextItem.annotations.code) {
+		subdecorations.push(['c']);
+	}
 
-  if (richTextItem.annotations.underline) {
-    subdecorations.push(['_'])
-  }
+	if (richTextItem.annotations.color !== 'default') {
+		subdecorations.push(['h', convertColor(richTextItem.annotations.color)]);
+	}
 
-  if (richTextItem.annotations.code) {
-    subdecorations.push(['c'])
-  }
+	const details = richTextItem[richTextItem.type];
 
-  if (richTextItem.annotations.color !== 'default') {
-    subdecorations.push(['h', convertColor(richTextItem.annotations.color)])
-  }
+	if (details && details.link) {
+		subdecorations.push(['a', details.link.url]);
+	}
 
-  const details = richTextItem[richTextItem.type]
-  if (details) {
-    if (details.link) {
-      subdecorations.push(['a', details.link.url])
-    }
-  }
+	switch (richTextItem.type) {
+		case 'text': {
+			if (subdecorations.length > 0) {
+				return [richTextItem.text.content, subdecorations];
+			}
 
-  switch (richTextItem.type) {
-    case 'text': {
-      if (subdecorations.length) {
-        return [richTextItem.text.content, subdecorations]
-      } else {
-        return [richTextItem.text.content]
-      }
-    }
+			return [richTextItem.text.content];
+		}
 
-    case 'equation':
-      if (richTextItem.equation?.expression) {
-        subdecorations.unshift(['e', richTextItem.equation.expression])
-      }
+		case 'equation': {
+			if (richTextItem.equation?.expression) {
+				subdecorations.unshift(['e', richTextItem.equation.expression]);
+			}
 
-      return ['⁍', subdecorations]
+			return ['⁍', subdecorations];
+		}
 
-    case 'mention': {
-      const { mention } = richTextItem
+		case 'mention': {
+			const {mention} = richTextItem;
 
-      if (mention) {
-        switch (mention.type) {
-          case 'link_preview':
-            // TODO: this should be an eoi, but we don't hae the proper data
-            subdecorations.push(['a', mention.link_preview.url])
-            break
+			if (mention) {
+				switch (mention.type) {
+					case 'link_preview': {
+						// TODO: this should be an eoi, but we don't hae the proper data
+						subdecorations.push(['a', mention.link_preview.url]);
 
-          case 'page':
-            subdecorations.push(['p', mention.page.id])
-            return ['‣', subdecorations]
+						break;
+					}
 
-          case 'database':
-            subdecorations.push(['p', mention.database.id])
-            return ['‣', subdecorations]
+					case 'page': {
+						subdecorations.push(['p', mention.page.id]);
 
-          case 'date':
-            subdecorations.unshift([
-              'd',
-              {
-                type: 'date', // TODO
-                start_date: mention.date.start,
-                end_date: mention.date.end,
-                time_zone: mention.date.time_zone
-              }
-            ])
-            break
+						return ['‣', subdecorations];
+					}
 
-          case 'user':
-            subdecorations.push(['u', mention.user.id])
-            break
+					case 'database': {
+						subdecorations.push(['p', mention.database.id]);
 
-          case 'template_mention':
-            // TODO
-            // subdecorations.push(['m', mention.template_mention.type])
-            break
+						return ['‣', subdecorations];
+					}
 
-          default:
-            // TODO
-            break
-        }
-      }
+					case 'date': {
+						subdecorations.unshift([
+							'd',
+							{
+								end_date: mention.date.end,
+								start_date: mention.date.start,
+								time_zone: mention.date.time_zone,
+								type: 'date', // TODO
+							},
+						]);
 
-      return [richTextItem.plain_text, subdecorations]
-    }
+						break;
+					}
 
-    default:
-      return ['']
-  }
-}
+					case 'user': {
+						subdecorations.push(['u', mention.user.id]);
+
+						break;
+					}
+
+					case 'template_mention': {
+						/* TODO
+						   subdecorations.push(['m', mention.template_mention.type]) */
+						break;
+					}
+
+					default: {
+						// TODO
+						break;
+					}
+				}
+			}
+
+			return [richTextItem.plain_text, subdecorations];
+		}
+
+		default: {
+			return [''];
+		}
+	}
+};
+
+export const convertRichText = (richText: RichText): Decoration[] => {
+	return richText.map(convertRichTextItem).filter(Boolean);
+};

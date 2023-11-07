@@ -1,103 +1,105 @@
-import * as notion from 'notion-types'
+import {convertBlock} from './convert-block';
+import type {Block, ExtendedRecordMap} from 'notion-types';
+import type {
+	Block as Block1,
+	BlockChildrenMap,
+	BlockMap,
+	Page,
+	PageMap,
+	ParentMap,
+} from './types';
 
-import * as types from './types'
-import { convertBlock } from './convert-block'
-
-export function convertPage({
-  pageId,
-  blockMap,
-  blockChildrenMap,
-  pageMap,
-  parentMap
+export const convertPageBlock = ({
+	pageId,
+	blockMap,
+	blockChildrenMap,
+	pageMap,
+	parentMap,
 }: {
-  pageId: string
-  blockMap: types.BlockMap
-  blockChildrenMap: types.BlockChildrenMap
-  pageMap: types.PageMap
-  parentMap: types.ParentMap
-}): notion.ExtendedRecordMap {
-  const compatBlocks = Object.values(blockMap).map((block) =>
-    convertBlock({
-      block,
-      children: blockChildrenMap[block.id],
-      pageMap,
-      blockMap,
-      parentMap
-    })
-  )
+	pageId: string;
+	blockMap: BlockMap;
+	blockChildrenMap: BlockChildrenMap;
+	pageMap: PageMap;
+	parentMap: ParentMap;
+}): Block | null => {
+	const partialPage = pageMap[pageId];
+	const page = partialPage as Page;
 
-  const compatPageBlock = convertPageBlock({
-    pageId,
-    blockMap,
-    blockChildrenMap,
-    pageMap,
-    parentMap
-  })
+	if (page) {
+		const compatPageBlock = convertBlock({
+			block: {...page, type: 'child_page'} as unknown as Block1,
+			blockMap,
+			children: blockChildrenMap[page.id],
+			pageMap,
+			parentMap,
+		});
 
-  const compatPageBlocks = Object.keys(pageMap)
-    .filter((id) => id !== pageId)
-    .map((id) =>
-      convertPageBlock({
-        pageId: id,
-        blockMap,
-        blockChildrenMap,
-        pageMap,
-        parentMap
-      })
-    )
+		return compatPageBlock;
+	}
 
-  const compatBlockMap = [
-    compatPageBlock,
-    ...compatBlocks,
-    ...compatPageBlocks
-  ].reduce(
-    (blockMap, block) => ({
-      ...blockMap,
-      [block.id]: {
-        type: 'reader',
-        value: block
-      }
-    }),
-    {}
-  )
+	return null;
+};
 
-  return {
-    block: compatBlockMap,
-    collection: {},
-    collection_view: {},
-    collection_query: {},
-    signed_urls: {},
-    notion_user: {}
-  }
-}
-
-export function convertPageBlock({
-  pageId,
-  blockMap,
-  blockChildrenMap,
-  pageMap,
-  parentMap
+export const convertPage = ({
+	pageId,
+	blockMap,
+	blockChildrenMap,
+	pageMap,
+	parentMap,
 }: {
-  pageId: string
-  blockMap: types.BlockMap
-  blockChildrenMap: types.BlockChildrenMap
-  pageMap: types.PageMap
-  parentMap: types.ParentMap
-}): notion.Block | null {
-  const partialPage = pageMap[pageId]
-  const page = partialPage as types.Page
+	pageId: string;
+	blockMap: BlockMap;
+	blockChildrenMap: BlockChildrenMap;
+	pageMap: PageMap;
+	parentMap: ParentMap;
+}): ExtendedRecordMap => {
+	const compatBlocks = Object.values(blockMap).map(block =>
+		convertBlock({
+			block,
+			blockMap,
+			children: blockChildrenMap[block.id],
+			pageMap,
+			parentMap,
+		}),
+	);
 
-  if (page) {
-    const compatPageBlock = convertBlock({
-      block: { ...page, type: 'child_page' } as unknown as types.Block,
-      children: blockChildrenMap[page.id],
-      pageMap,
-      blockMap,
-      parentMap
-    })
+	const compatPageBlock = convertPageBlock({
+		blockChildrenMap,
+		blockMap,
+		pageId,
+		pageMap,
+		parentMap,
+	});
 
-    return compatPageBlock
-  }
+	const compatPageBlocks = Object.keys(pageMap)
+		.filter(id => id !== pageId)
+		.map(id =>
+			convertPageBlock({
+				blockChildrenMap,
+				blockMap,
+				pageId: id,
+				pageMap,
+				parentMap,
+			}),
+		);
 
-  return null
-}
+	const compatBlockMap = Object.fromEntries(
+		[compatPageBlock, ...compatBlocks, ...compatPageBlocks].map(block => [
+			block.id,
+			{
+				type: 'reader',
+				value: block,
+			},
+		]),
+	);
+
+	return {
+		// @ts-expect-error wrong types
+		block: compatBlockMap,
+		collection: {},
+		collection_query: {},
+		collection_view: {},
+		notion_user: {},
+		signed_urls: {},
+	};
+};

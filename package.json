@@ -1,20 +1,20 @@
 {
   "name": "@wildweb/notion-compat",
-  "version": "7.0.0-1",
-  "type": "module",
+  "version": "7.0.0-2",
   "description": "Compatibility layer between the official Notion API and unofficial private API.",
+  "type": "module",
+  "license": "MIT",
   "repository": "wildweb-io/react-notion-x",
   "author": "Travis Fischer <travis@transitivebullsh.it>",
-  "license": "MIT",
+  "files": [
+    "build"
+  ],
   "main": "./build/index.js",
   "module": "./build/index.js",
   "types": "./build/index.d.ts",
   "sideEffects": false,
-  "files": [
-    "build"
-  ],
-  "engines": {
-    "node": ">=12"
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "prepublishOnly": "tsup",
@@ -23,26 +23,26 @@
     "lint:fix": "eslint . --fix",
     "ts": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "@notionhq/client": "^1.0.4"
+  },
   "dependencies": {
     "notion-types": "^6.16.0",
     "notion-utils": "^6.16.0",
     "p-queue": "^7.2.0"
   },
   "devDependencies": {
-    "tsup": "^7.2.0",
     "@nivalis/eslint-config": "^1.0.0",
     "@nivalis/prettier-config": "^1.0.0",
     "@notionhq/client": "^1.0.4",
     "eslint": "8.52",
     "notion-client": "^6.16.0",
     "prettier": "^3.0.3",
+    "tsup": "^7.2.0",
     "typescript": "^5.2.2"
   },
-  "peerDependencies": {
-    "@notionhq/client": "^1.0.4"
+  "engines": {
+    "node": ">=16"
   },
-  "prettier": "@nivalis/prettier-config",
-  "publishConfig": {
-    "access": "public"
-  }
+  "prettier": "@nivalis/prettier-config"
 }

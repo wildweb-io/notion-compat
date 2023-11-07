@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
     "target": "ESNext",
+    "jsx": "react",
     "module": "ESNext",
     "moduleResolution": "Node",
-    "jsx": "react",
-    "esModuleInterop": true,
-    "strict": false
+    "strict": false,
+    "esModuleInterop": true
   },
-  "include": ["src"]
+  "include": ["src", "tsup.config.ts"]
 }

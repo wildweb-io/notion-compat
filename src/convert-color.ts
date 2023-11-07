@@ -1,14 +1,17 @@
-import * as notion from 'notion-types'
+import type {Color} from 'notion-types';
 
-export function convertColor(color: string): notion.Color {
-  switch (color) {
-    case 'green':
-      return 'teal'
+export const convertColor = (color: string): Color => {
+	switch (color) {
+		case 'green': {
+			return 'teal';
+		}
 
-    case 'green_background':
-      return 'teal_background'
+		case 'green_background': {
+			return 'teal_background';
+		}
 
-    default:
-      return color as notion.Color
-  }
-}
+		default: {
+			return color as Color;
+		}
+	}
+};

@@ -1,214 +1,247 @@
-import * as notion from 'notion-types'
-import type { Client } from '@notionhq/client'
-import { parsePageId } from 'notion-utils'
-import PQueue from 'p-queue'
-
-import * as types from './types'
-import { convertPage } from './convert-page'
+/* eslint-disable unicorn/prefer-spread */
+/* eslint-disable max-depth */
+/* eslint-disable default-case */
+/* eslint-disable complexity */
+/* eslint-disable max-statements */
+import {parsePageId} from 'notion-utils';
+import PQueue from 'p-queue';
+import {convertPage} from './convert-page';
+import type {ExtendedRecordMap} from 'notion-types';
+import type {
+	Block,
+	BlockChildren,
+	BlockChildrenMap,
+	BlockMap,
+	Page,
+	PageMap,
+	ParentMap,
+} from './types';
+import type {Client} from '@notionhq/client';
 
 export class NotionCompatAPI {
-  client: Client
+	client: Client;
 
-  constructor(client: Client) {
-    this.client = client
-  }
+	constructor(client: Client) {
+		this.client = client;
+	}
 
-  public async getPage(rawPageId: string): Promise<notion.ExtendedRecordMap> {
-    const pageId = parsePageId(rawPageId)
+	public async getPage(rawPageId: string): Promise<ExtendedRecordMap> {
+		const pageId = parsePageId(rawPageId);
 
-    const [page, block, children] = await Promise.all([
-      this.client.pages.retrieve({ page_id: pageId }),
-      this.client.blocks.retrieve({ block_id: pageId }),
-      this.getAllBlockChildren(pageId)
-    ])
-    const { blockMap, blockChildrenMap, pageMap, parentMap } =
-      await this.resolvePage(pageId)
+		const [page, block, children] = await Promise.all([
+			this.client.pages.retrieve({page_id: pageId}),
+			this.client.blocks.retrieve({block_id: pageId}),
+			this.getAllBlockChildren(pageId),
+		]);
+		const {blockMap, blockChildrenMap, pageMap, parentMap} =
+			await this.resolvePage(pageId);
 
-    const recordMap = convertPage({
-      pageId,
-      blockMap,
-      blockChildrenMap,
-      pageMap,
-      parentMap
-    })
+		const recordMap = convertPage({
+			blockChildrenMap,
+			blockMap,
+			pageId,
+			pageMap,
+			parentMap,
+		});
 
-    ;(recordMap as any).raw = {
-      page,
-      block,
-      children
-    }
+		(recordMap as any).raw = {
+			block,
+			children,
+			page,
+		};
 
-    return recordMap
-  }
+		return recordMap;
+	}
 
-  async resolvePage(
-    rootBlockId: string,
-    {
-      concurrency = 4
-    }: {
-      concurrency?: number
-    } = {}
-  ) {
-    const blockMap: types.BlockMap = {}
-    const pageMap: types.PageMap = {}
-    const parentMap: types.ParentMap = {}
-    const blockChildrenMap: types.BlockChildrenMap = {}
-    const pendingBlockIds = new Set<string>()
-    const queue = new PQueue({ concurrency })
+	async resolvePage(
+		rootBlockId: string,
+		{
+			concurrency = 4,
+		}: {
+			concurrency?: number;
+		} = {},
+	) {
+		const blockMap: BlockMap = {};
+		const pageMap: PageMap = {};
+		const parentMap: ParentMap = {};
+		const blockChildrenMap: BlockChildrenMap = {};
+		const pendingBlockIds = new Set<string>();
+		const queue = new PQueue({concurrency});
 
-    const processBlock = async (
-      blockId: string,
-      { shallow = false }: { shallow?: boolean } = {}
-    ) => {
-      if (!blockId || pendingBlockIds.has(blockId)) {
-        return
-      }
+		const processBlock = async (
+			blockId: string,
+			{shallow = false}: {shallow?: boolean} = {},
+		) => {
+			if (!blockId || pendingBlockIds.has(blockId)) {
+				return;
+			}
 
-      pendingBlockIds.add(blockId)
-      queue.add(async () => {
-        try {
-          let partialBlock = blockMap[blockId]
-          if (!partialBlock) {
-            partialBlock = await this.client.blocks.retrieve({
-              block_id: blockId
-            })
-            blockMap[blockId] = partialBlock
-          }
+			pendingBlockIds.add(blockId);
+			queue.add(async () => {
+				try {
+					let partialBlock = blockMap[blockId];
 
-          const block = partialBlock as types.Block
-          if (block.type === 'child_page') {
-            if (!pageMap[blockId]) {
-              const partialPage = await this.client.pages.retrieve({
-                page_id: blockId
-              })
+					if (!partialBlock) {
+						partialBlock = await this.client.blocks.retrieve({
+							block_id: blockId,
+						});
+						blockMap[blockId] = partialBlock;
+					}
 
-              pageMap[blockId] = partialPage
+					const block = partialBlock as Block;
 
-              const page = partialPage as types.Page
-              switch (page.parent?.type) {
-                case 'page_id':
-                  processBlock(page.parent.page_id, {
-                    shallow: true
-                  })
-                  if (!parentMap[blockId]) {
-                    parentMap[blockId] = page.parent.page_id
-                  }
-                  break
+					if (block.type === 'child_page') {
+						if (!pageMap[blockId]) {
+							const partialPage = await this.client.pages.retrieve({
+								page_id: blockId,
+							});
 
-                case 'database_id':
-                  processBlock(page.parent.database_id, {
-                    shallow: true
-                  })
-                  if (!parentMap[blockId]) {
-                    parentMap[blockId] = page.parent.database_id
-                  }
-                  break
-              }
-            }
+							pageMap[blockId] = partialPage;
 
-            if (blockId !== rootBlockId) {
-              // don't fetch children or recurse on subpages
-              return
-            }
-          }
+							const page = partialPage as Page;
 
-          if (shallow) {
-            return
-          }
+							switch (page.parent?.type) {
+								case 'page_id': {
+									processBlock(page.parent.page_id, {
+										shallow: true,
+									});
 
-          const children = await this.getAllBlockChildren(blockId)
-          blockChildrenMap[blockId] = children.map((child) => child.id)
+									if (!parentMap[blockId]) {
+										parentMap[blockId] = page.parent.page_id;
+									}
 
-          for (const child of children) {
-            const childBlock = child as types.Block
-            const mappedChildBlock = blockMap[child.id] as types.Block
-            if (
-              !mappedChildBlock ||
-              (!mappedChildBlock.type && childBlock.type)
-            ) {
-              blockMap[child.id] = childBlock
-              parentMap[child.id] = blockId
+									break;
+								}
 
-              const details = childBlock[childBlock.type]
-              if (details?.rich_text) {
-                const richTextMentions = details.rich_text.filter(
-                  (richTextItem) => richTextItem.type === 'mention'
-                )
+								case 'database_id': {
+									processBlock(page.parent.database_id, {
+										shallow: true,
+									});
 
-                for (const richTextMention of richTextMentions) {
-                  switch (richTextMention.mention?.type) {
-                    case 'page': {
-                      const pageId = richTextMention.mention.page.id
-                      processBlock(pageId, { shallow: true })
-                      break
-                    }
+									if (!parentMap[blockId]) {
+										parentMap[blockId] = page.parent.database_id;
+									}
 
-                    case 'database': {
-                      const databaseId = richTextMention.mention.database.id
-                      processBlock(databaseId, { shallow: true })
-                      break
-                    }
-                  }
-                }
-              }
+									break;
+								}
+							}
+						}
 
-              if (childBlock.type === 'link_to_page') {
-                switch (childBlock.link_to_page?.type) {
-                  case 'page_id':
-                    processBlock(childBlock.link_to_page.page_id, {
-                      shallow: true
-                    })
-                    break
+						if (blockId !== rootBlockId) {
+							// don't fetch children or recurse on subpages
+							return;
+						}
+					}
 
-                  case 'database_id':
-                    processBlock(childBlock.link_to_page.database_id, {
-                      shallow: true
-                    })
-                    break
-                }
-              }
+					if (shallow) {
+						return;
+					}
 
-              if (
-                childBlock.has_children &&
-                childBlock.type !== 'child_database'
-              ) {
-                processBlock(childBlock.id)
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('failed resolving block', blockId, err.message)
-        } finally {
-          pendingBlockIds.delete(blockId)
-        }
-      })
-    }
+					const children = await this.getAllBlockChildren(blockId);
 
-    await processBlock(rootBlockId)
-    await queue.onIdle()
+					blockChildrenMap[blockId] = children.map(child => child.id);
 
-    return {
-      blockMap,
-      blockChildrenMap,
-      pageMap,
-      parentMap
-    }
-  }
+					for (const child of children) {
+						const childBlock = child as Block;
+						const mappedChildBlock = blockMap[child.id] as Block;
 
-  async getAllBlockChildren(blockId: string) {
-    let blocks: types.BlockChildren = []
-    let cursor: string
+						if (
+							!mappedChildBlock ||
+							(!mappedChildBlock.type && childBlock.type)
+						) {
+							blockMap[child.id] = childBlock;
+							parentMap[child.id] = blockId;
 
-    do {
-      const res = await this.client.blocks.children.list({
-        block_id: blockId,
-        start_cursor: cursor
-      })
+							const details = childBlock[childBlock.type];
 
-      blocks = blocks.concat(res.results)
-      cursor = res.next_cursor
-    } while (cursor)
+							if (details?.rich_text) {
+								const richTextMentions = details.rich_text.filter(
+									richTextItem => richTextItem.type === 'mention',
+								);
 
-    return blocks
-  }
+								for (const richTextMention of richTextMentions) {
+									switch (richTextMention.mention?.type) {
+										case 'page': {
+											const pageId = richTextMention.mention.page.id;
+
+											processBlock(pageId, {shallow: true});
+
+											break;
+										}
+
+										case 'database': {
+											const databaseId = richTextMention.mention.database.id;
+
+											processBlock(databaseId, {shallow: true});
+
+											break;
+										}
+									}
+								}
+							}
+
+							if (childBlock.type === 'link_to_page') {
+								switch (childBlock.link_to_page?.type) {
+									case 'page_id': {
+										processBlock(childBlock.link_to_page.page_id, {
+											shallow: true,
+										});
+
+										break;
+									}
+
+									case 'database_id': {
+										processBlock(childBlock.link_to_page.database_id, {
+											shallow: true,
+										});
+
+										break;
+									}
+								}
+							}
+
+							if (
+								childBlock.has_children &&
+								childBlock.type !== 'child_database'
+							) {
+								processBlock(childBlock.id);
+							}
+						}
+					}
+				} catch (error) {
+					console.warn('failed resolving block', blockId, error.message);
+				} finally {
+					pendingBlockIds.delete(blockId);
+				}
+			});
+		};
+
+		await processBlock(rootBlockId);
+		await queue.onIdle();
+
+		return {
+			blockChildrenMap,
+			blockMap,
+			pageMap,
+			parentMap,
+		};
+	}
+
+	async getAllBlockChildren(blockId: string) {
+		let blocks: BlockChildren = [];
+		let cursor: string;
+
+		do {
+			// eslint-disable-next-line no-await-in-loop
+			const res = await this.client.blocks.children.list({
+				block_id: blockId,
+				start_cursor: cursor,
+			});
+
+			blocks = blocks.concat(res.results);
+			cursor = res.next_cursor;
+		} while (cursor);
+
+		return blocks;
+	}
 }
