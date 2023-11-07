@@ -1,6 +1,6 @@
 {
   "name": "@wildweb/notion-compat",
-  "version": "6.16.4",
+  "version": "7.0.0-1",
   "type": "module",
   "description": "Compatibility layer between the official Notion API and unofficial private API.",
   "repository": "wildweb-io/react-notion-x",
@@ -17,35 +17,32 @@
     "node": ">=12"
   },
   "scripts": {
+    "prepublishOnly": "tsup",
     "build": "tsup",
-    "watch": "tsup --watch --silent --onSuccess 'echo build successful'",
-    "test": "ava"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "ts": "tsc --noEmit"
   },
   "dependencies": {
     "notion-types": "^6.16.0",
     "notion-utils": "^6.16.0",
-    "p-queue": "^7.2.0",
-    "tsup": "^7.2.0"
+    "p-queue": "^7.2.0"
   },
   "devDependencies": {
+    "tsup": "^7.2.0",
+    "@nivalis/eslint-config": "^1.0.0",
+    "@nivalis/prettier-config": "^1.0.0",
     "@notionhq/client": "^1.0.4",
-    "notion-client": "^6.16.0"
+    "eslint": "8.52",
+    "notion-client": "^6.16.0",
+    "prettier": "^3.0.3",
+    "typescript": "^5.2.2"
   },
   "peerDependencies": {
     "@notionhq/client": "^1.0.4"
   },
+  "prettier": "@nivalis/prettier-config",
   "publishConfig": {
     "access": "public"
-  },
-  "ava": {
-    "snapshotDir": ".snapshots",
-    "extensions": {
-      "ts": "module"
-    },
-    "nodeArguments": [
-      "--loader=ts-node/esm",
-      "--no-warnings",
-      "--experimental-specifier-resolution=node"
-    ]
   }
 }
