@@ -1,6 +1,6 @@
 {
   "name": "@wildweb/notion-compat",
-  "version": "7.0.0-2",
+  "version": "7.0.0",
   "description": "Compatibility layer between the official Notion API and unofficial private API.",
   "type": "module",
   "license": "MIT",
