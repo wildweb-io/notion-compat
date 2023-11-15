@@ -4,7 +4,7 @@ export default defineConfig({
 	dts: true,
 	entry: ['src/index.ts'],
 	format: ['esm'],
-	minify: true,
+	minify: false,
 	outDir: 'build',
 	platform: 'node',
 	shims: false,
